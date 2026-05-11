@@ -317,7 +317,7 @@ export default function JuryPage() {
                 <span className="text-xl">{c.emoji}</span>
                 <div>
                   <p className="text-white font-bold text-sm leading-snug">{c.title}</p>
-                  <p className="text-white/40 text-xs mt-0.5 leading-relaxed">{c.description}</p>
+                  <p className="text-white/80 text-sm mt-1 leading-relaxed">{c.description}</p>
                 </div>
               </div>
               <div className="flex gap-2 justify-between">
