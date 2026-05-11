@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { DBState, GroupWithScore } from '@/types'
 
 const POLL_INTERVAL_MS = 1000
+const FETCH_TIMEOUT_MS = 15000  // Mobil/yavaş ağda hızlı fail için
 
 export function useCompetitionRealtime(opts?: { admin?: boolean }) {
   const [state, setState] = useState<DBState | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const url = opts?.admin ? '/api/admin/state' : '/api/state'
@@ -19,13 +21,31 @@ export function useCompetitionRealtime(opts?: { admin?: boolean }) {
         const pw = sessionStorage.getItem('admin_pw')
         if (pw) headers['X-Admin-Password'] = pw
       }
-      const res = await fetch(url, { headers, cache: 'no-store' })
-      if (res.ok) {
-        const data = await res.json()
-        setState(data)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+      try {
+        const res = await fetch(url, {
+          headers,
+          cache: 'no-store',
+          credentials: 'omit',
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+        if (res.ok) {
+          const data = await res.json()
+          setState(data)
+          setError(null)
+        } else {
+          setError(`Sunucu hatası (${res.status})`)
+        }
+      } catch (e: any) {
+        clearTimeout(timeoutId)
+        if (e?.name === 'AbortError') {
+          setError('Sunucu yanıt vermiyor (timeout). Tekrar deniyor...')
+        } else {
+          setError('Bağlantı hatası: ' + (e?.message || 'bilinmiyor'))
+        }
       }
-    } catch {
-      // sessizce yoksay (geçici ağ hatası)
     } finally {
       setLoading(false)
     }
@@ -71,6 +91,7 @@ export function useCompetitionRealtime(opts?: { admin?: boolean }) {
     hasJuryVoted,
     allVotesIn,
     loading,
+    error,
     refresh: fetchState,
   }
 }
