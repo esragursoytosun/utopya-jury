@@ -74,20 +74,30 @@ function migrateInline(db: DBState): DBState {
   return db
 }
 
+// MongoDB hata sayacı — corruption önlemek için "kaç ardışık hata" takip ediyor
+let mongoErrorStreak = 0
+
 export async function loadDB(): Promise<DBState> {
   const col = await getCollection()
   if (col) {
-    // MongoDB MODE — hata olursa sessizce dosyaya düşmek YOK, hata fırlatılır
-    const doc = await col.findOne<any>({ _id: STATE_DOC_ID as any })
-    if (!doc) {
-      const fresh = defaultDB()
-      await col.insertOne({ _id: STATE_DOC_ID, ...fresh } as any)
-      return fresh
+    try {
+      const doc = await col.findOne<any>({ _id: STATE_DOC_ID as any })
+      if (!doc) {
+        // Doc yok: ilk kez kurulum → sadece tek seferlik defaults yaz
+        const fresh = defaultDB()
+        await col.insertOne({ _id: STATE_DOC_ID, ...fresh } as any)
+        mongoErrorStreak = 0
+        return fresh
+      }
+      const { _id, ...rest } = doc
+      mongoErrorStreak = 0
+      return migrateInline(rest as DBState)
+    } catch (e) {
+      mongoErrorStreak++
+      console.error('[db] MongoDB load error, fallback to file (streak=' + mongoErrorStreak + '):', e)
     }
-    const { _id, ...rest } = doc
-    return migrateInline(rest as DBState)
   }
-  // Dosya modu (sadece MONGODB_URI yoksa — yerel dev)
+  // Dosya fallback (hata yedek planı veya MONGODB_URI yoksa)
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
   if (!fs.existsSync(DB_PATH)) {
     const db = defaultDB()
@@ -105,11 +115,17 @@ export async function loadDB(): Promise<DBState> {
 
 export async function saveDB(db: DBState): Promise<void> {
   const col = await getCollection()
-  if (col) {
-    // MongoDB MODE — hata olursa sessizce dosyaya yazma YOK, hata fırlatılır
-    await col.replaceOne({ _id: STATE_DOC_ID as any }, { _id: STATE_DOC_ID, ...db } as any, { upsert: true })
-    return
+  if (col && mongoErrorStreak === 0) {
+    // MongoDB sağlıklı görünüyorsa yaz. Aksi halde dosyaya yaz, MongoDB'yi corrupte etme.
+    try {
+      await col.replaceOne({ _id: STATE_DOC_ID as any }, { _id: STATE_DOC_ID, ...db } as any, { upsert: true })
+      return
+    } catch (e) {
+      mongoErrorStreak++
+      console.error('[db] MongoDB save error, fallback to file:', e)
+    }
   }
+  // MongoDB güvenilmez ya da yapılandırılmamış → dosyaya yaz
   saveDBSync(db)
 }
 
