@@ -77,20 +77,17 @@ function migrateInline(db: DBState): DBState {
 export async function loadDB(): Promise<DBState> {
   const col = await getCollection()
   if (col) {
-    try {
-      const doc = await col.findOne<any>({ _id: STATE_DOC_ID as any })
-      if (!doc) {
-        const fresh = defaultDB()
-        await col.insertOne({ _id: STATE_DOC_ID, ...fresh } as any)
-        return fresh
-      }
-      const { _id, ...rest } = doc
-      return migrateInline(rest as DBState)
-    } catch (e) {
-      console.error('[db] MongoDB load error, falling back:', e)
+    // MongoDB MODE — hata olursa sessizce dosyaya düşmek YOK, hata fırlatılır
+    const doc = await col.findOne<any>({ _id: STATE_DOC_ID as any })
+    if (!doc) {
+      const fresh = defaultDB()
+      await col.insertOne({ _id: STATE_DOC_ID, ...fresh } as any)
+      return fresh
     }
+    const { _id, ...rest } = doc
+    return migrateInline(rest as DBState)
   }
-  // File fallback (yerel dev)
+  // Dosya modu (sadece MONGODB_URI yoksa — yerel dev)
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
   if (!fs.existsSync(DB_PATH)) {
     const db = defaultDB()
@@ -109,12 +106,9 @@ export async function loadDB(): Promise<DBState> {
 export async function saveDB(db: DBState): Promise<void> {
   const col = await getCollection()
   if (col) {
-    try {
-      await col.replaceOne({ _id: STATE_DOC_ID as any }, { _id: STATE_DOC_ID, ...db } as any, { upsert: true })
-      return
-    } catch (e) {
-      console.error('[db] MongoDB save error, falling back:', e)
-    }
+    // MongoDB MODE — hata olursa sessizce dosyaya yazma YOK, hata fırlatılır
+    await col.replaceOne({ _id: STATE_DOC_ID as any }, { _id: STATE_DOC_ID, ...db } as any, { upsert: true })
+    return
   }
   saveDBSync(db)
 }
