@@ -5,6 +5,6 @@ import { checkAdminAuth } from '../../auth/admin/route'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  return NextResponse.json(loadDB())
+  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  return NextResponse.json(await loadDB())
 }

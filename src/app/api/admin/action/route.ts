@@ -6,12 +6,12 @@ import { checkAdminAuth } from '../../auth/admin/route'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
-  if (!checkAdminAuth(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!(await checkAdminAuth(req))) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const { type, payload } = await req.json()
 
   try {
-    const newDB = updateDB(db => {
+    const newDB = await updateDB(db => {
       switch (type) {
         /* ---------- Yarışma ---------- */
         case 'callNextGroup': {

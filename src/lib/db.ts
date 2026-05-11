@@ -1,10 +1,13 @@
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { MongoClient, type Collection } from 'mongodb'
 import type { DBState, Group, Jury } from '@/types'
 
+const MONGODB_URI = process.env.MONGODB_URI
 const DATA_DIR = path.join(process.cwd(), 'data')
 const DB_PATH = path.join(DATA_DIR, 'competition.json')
+const STATE_DOC_ID = 'competition_state'
 
 const DEFAULT_GROUPS = [
   'Sağlık Yönetimi',
@@ -50,21 +53,18 @@ function defaultDB(): DBState {
   }
 }
 
-export function loadDB(): DBState {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
-  if (!fs.existsSync(DB_PATH)) {
-    const db = defaultDB()
-    saveDB(db)
-    return db
+// MongoDB client singleton (HMR safe)
+const globalForMongo = global as unknown as { _mongoClient?: MongoClient; _mongoCol?: Collection }
+
+async function getCollection(): Promise<Collection | null> {
+  if (!MONGODB_URI) return null
+  if (globalForMongo._mongoCol) return globalForMongo._mongoCol
+  if (!globalForMongo._mongoClient) {
+    globalForMongo._mongoClient = new MongoClient(MONGODB_URI)
+    await globalForMongo._mongoClient.connect()
   }
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'))
-    return migrateInline(parsed)
-  } catch {
-    const db = defaultDB()
-    saveDB(db)
-    return db
-  }
+  globalForMongo._mongoCol = globalForMongo._mongoClient.db('utopya').collection('state')
+  return globalForMongo._mongoCol
 }
 
 function migrateInline(db: DBState): DBState {
@@ -74,15 +74,60 @@ function migrateInline(db: DBState): DBState {
   return db
 }
 
-export function saveDB(db: DBState) {
+export async function loadDB(): Promise<DBState> {
+  const col = await getCollection()
+  if (col) {
+    try {
+      const doc = await col.findOne<any>({ _id: STATE_DOC_ID as any })
+      if (!doc) {
+        const fresh = defaultDB()
+        await col.insertOne({ _id: STATE_DOC_ID, ...fresh } as any)
+        return fresh
+      }
+      const { _id, ...rest } = doc
+      return migrateInline(rest as DBState)
+    } catch (e) {
+      console.error('[db] MongoDB load error, falling back:', e)
+    }
+  }
+  // File fallback (yerel dev)
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
+  if (!fs.existsSync(DB_PATH)) {
+    const db = defaultDB()
+    saveDBSync(db)
+    return db
+  }
+  try {
+    return migrateInline(JSON.parse(fs.readFileSync(DB_PATH, 'utf8')))
+  } catch {
+    const db = defaultDB()
+    saveDBSync(db)
+    return db
+  }
+}
+
+export async function saveDB(db: DBState): Promise<void> {
+  const col = await getCollection()
+  if (col) {
+    try {
+      await col.replaceOne({ _id: STATE_DOC_ID as any }, { _id: STATE_DOC_ID, ...db } as any, { upsert: true })
+      return
+    } catch (e) {
+      console.error('[db] MongoDB save error, falling back:', e)
+    }
+  }
+  saveDBSync(db)
+}
+
+function saveDBSync(db: DBState): void {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2), 'utf8')
 }
 
-export function updateDB(fn: (db: DBState) => void): DBState {
-  const db = loadDB()
+export async function updateDB(fn: (db: DBState) => void): Promise<DBState> {
+  const db = await loadDB()
   fn(db)
-  saveDB(db)
+  await saveDB(db)
   return db
 }
 
@@ -91,7 +136,6 @@ export function genCode(): string {
 }
 
 export function publicState(db: DBState): DBState {
-  // Erişim kodlarını gizle (admin dışında)
   return {
     ...db,
     juries: db.juries.map(j => ({ ...j, access_code: null })),
@@ -106,12 +150,4 @@ export function resetCompetition(db: DBState) {
   db.competition.current_group_id = null
   db.groups.forEach(g => { g.status = 'pending'; g.score_revealed = false })
   db.votes = []
-}
-
-// Eski kayıtlarda show_leaderboard alanı yoksa, varsayılan ekle
-export function migrate(db: DBState): DBState {
-  if (db.competition && (db.competition as any).show_leaderboard === undefined) {
-    (db.competition as any).show_leaderboard = false
-  }
-  return db
 }

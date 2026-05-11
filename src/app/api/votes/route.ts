@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const db = updateDB(db => {
+    const db = await updateDB(db => {
       // Aktif grup mu?
       if (db.competition.current_group_id !== group_id) {
         throw new Error('Bu grup şu anda aktif değil')

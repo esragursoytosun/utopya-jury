@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const { code, juryId } = await req.json()
-  const db = loadDB()
+  const db = await loadDB()
 
   // Direct ID seçim (kod yoksa kullanılır)
   if (juryId) {
