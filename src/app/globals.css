@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: 'Inter', system-ui, sans-serif;
+  }
+
+  html {
+    font-family: var(--font-inter);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Projeksiyon ekranı için kaydırma çubuğunu gizle */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+
+  .glow-gold {
+    filter: drop-shadow(0 0 20px rgba(245,158,11,0.7));
+  }
+
+  .glow-white {
+    filter: drop-shadow(0 0 15px rgba(255,255,255,0.4));
+  }
+}
