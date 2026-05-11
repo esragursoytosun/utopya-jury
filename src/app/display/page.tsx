@@ -286,14 +286,16 @@ export default function DisplayPage() {
 
 function DisplayHeader({ competition, large = false }: { competition: { name: string } | null; large?: boolean }) {
   return (
-    <div className={`flex items-center justify-between px-6 py-4 ${large ? '' : 'border-b border-white/10'}`}>
-      <div className="w-24 h-14 border border-white/10 rounded-xl flex items-center justify-center text-white/20 text-xs text-center">IGÜ<br/>Logo</div>
+    <div className={`flex items-center justify-between px-6 py-4 gap-4 ${large ? '' : 'border-b border-white/10'}`}>
+      <img src="/logo-igu.png" alt="İGÜ"
+        className={`object-contain bg-white rounded-full p-1 shrink-0 ${large ? 'h-20 w-20' : 'h-14 w-14'}`} />
       <div className="text-center flex-1 px-4">
         <p className={`text-white font-black tracking-tight ${large ? 'text-2xl' : 'text-base'}`}>
           {competition?.name ?? 'Ütopya Yarışması'}
         </p>
       </div>
-      <div className="w-24 h-14 border border-white/10 rounded-xl flex items-center justify-center text-white/20 text-xs text-center">SBF<br/>Logo</div>
+      <img src="/logo-sbf.png" alt="SBF"
+        className={`object-contain bg-white rounded-xl p-1.5 shrink-0 ${large ? 'h-20' : 'h-14'}`} />
     </div>
   )
 }

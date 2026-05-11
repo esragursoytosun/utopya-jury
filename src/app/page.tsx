@@ -4,13 +4,9 @@ export default function Home() {
     <main className="min-h-screen bg-[#0B1528] flex flex-col items-center justify-center gap-8 p-8">
       <div className="text-center">
         {/* Logo alanı */}
-        <div className="flex items-center justify-center gap-6 mb-8 opacity-70">
-          <div className="w-20 h-20 border-2 border-white/20 rounded-2xl flex items-center justify-center text-white/30 text-xs text-center">
-            IGÜ<br/>Logo
-          </div>
-          <div className="w-20 h-20 border-2 border-white/20 rounded-2xl flex items-center justify-center text-white/30 text-xs text-center">
-            SBF<br/>Logo
-          </div>
+        <div className="flex items-center justify-center gap-8 mb-8">
+          <img src="/logo-igu.png" alt="İGÜ" className="h-24 w-24 object-contain bg-white rounded-full p-1.5" />
+          <img src="/logo-sbf.png" alt="SBF" className="h-28 object-contain bg-white rounded-2xl p-2" />
         </div>
 
         <h1 className="text-3xl md:text-4xl font-black text-white mb-2">
