@@ -1,4 +1,3 @@
-import Link from 'next/link'
 
 export default function Home() {
   return (
@@ -23,24 +22,24 @@ export default function Home() {
       </div>
 
       <div className="flex flex-col gap-4 w-full max-w-xs">
-        <Link
+        <a
           href="/jury"
           className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 px-6 rounded-2xl transition-all text-lg shadow-lg"
         >
           🗳️ Jüri Girişi
-        </Link>
-        <Link
+        </a>
+        <a
           href="/display"
           className="flex items-center justify-center gap-3 bg-white/10 hover:bg-white/15 text-white font-bold py-4 px-6 rounded-2xl transition-all text-lg border border-white/10"
         >
           📺 Ana Ekran (Projeksiyon)
-        </Link>
-        <Link
+        </a>
+        <a
           href="/admin"
           className="flex items-center justify-center gap-3 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 font-bold py-4 px-6 rounded-2xl transition-all text-lg border border-amber-600/30"
         >
           ⚙️ Admin Paneli
-        </Link>
+        </a>
       </div>
 
       <p className="text-white/20 text-xs text-center">
