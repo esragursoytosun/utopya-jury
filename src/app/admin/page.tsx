@@ -139,6 +139,34 @@ function YarismaTab({ data, doAction, busy }: any) {
     setEditingName(false)
   }
 
+  async function downloadBackup() {
+    const pw = sessionStorage.getItem('admin_pw') ?? ''
+    const res = await fetch('/api/admin/backup', { headers: { 'X-Admin-Password': pw } })
+    if (!res.ok) { alert('İndirme hatası'); return }
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `utopya-backup-${new Date().toISOString().slice(0,19).replace(/[:.]/g, '-')}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  async function uploadBackup(file: File) {
+    if (!confirm('TÜM mevcut veri yedek dosyasıyla DEĞİŞTİRİLECEK. Emin misin?')) return
+    const text = await file.text()
+    let parsed: any
+    try { parsed = JSON.parse(text) } catch { alert('Dosya geçerli JSON değil'); return }
+    const pw = sessionStorage.getItem('admin_pw') ?? ''
+    const res = await fetch('/api/admin/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': pw },
+      body: JSON.stringify(parsed),
+    })
+    if (res.ok) { alert('Yedek başarıyla yüklendi'); window.location.reload() }
+    else { const e = await res.json().catch(() => ({})); alert('Hata: ' + (e.error ?? 'bilinmiyor')) }
+  }
+
   async function changePassword() {
     setPwError('')
     if (oldPw !== sessionStorage.getItem('admin_pw')) { setPwError('Mevcut şifre yanlış'); return }
@@ -198,14 +226,25 @@ function YarismaTab({ data, doAction, busy }: any) {
         </div>
       )}
 
-      {/* Yarışma Adı + Şifre — en üstte, geniş */}
+      {/* Yarışma Adı + Şifre + Yedek — en üstte */}
       <div className="bg-gray-900 border border-white/10 rounded-2xl p-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <p className="text-white/40 text-xs uppercase tracking-wider">Yarışma Adı</p>
-          <button onClick={() => setPwModal(true)}
-            className="text-white/40 hover:text-amber-400 text-xs px-3 py-1 border border-white/10 hover:border-amber-500/40 rounded-lg transition">
-            🔐 Şifre Değiştir
-          </button>
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={downloadBackup}
+              className="text-white/40 hover:text-cyan-400 text-xs px-3 py-1 border border-white/10 hover:border-cyan-500/40 rounded-lg transition">
+              💾 Yedek İndir
+            </button>
+            <label className="text-white/40 hover:text-cyan-400 text-xs px-3 py-1 border border-white/10 hover:border-cyan-500/40 rounded-lg transition cursor-pointer">
+              📤 Yedek Yükle
+              <input type="file" accept=".json" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) uploadBackup(f); e.target.value = '' }} />
+            </label>
+            <button onClick={() => setPwModal(true)}
+              className="text-white/40 hover:text-amber-400 text-xs px-3 py-1 border border-white/10 hover:border-amber-500/40 rounded-lg transition">
+              🔐 Şifre Değiştir
+            </button>
+          </div>
         </div>
         {editingName ? (
           <div className="flex gap-2">
