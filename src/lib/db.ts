@@ -56,12 +56,26 @@ function defaultDB(): DBState {
 // MongoDB client singleton (HMR safe)
 const globalForMongo = global as unknown as { _mongoClient?: MongoClient; _mongoCol?: Collection }
 
+function resetMongoClient() {
+  try { globalForMongo._mongoClient?.close().catch(() => {}) } catch {}
+  globalForMongo._mongoClient = undefined
+  globalForMongo._mongoCol = undefined
+}
+
 async function getCollection(): Promise<Collection | null> {
   if (!MONGODB_URI) return null
   if (globalForMongo._mongoCol) return globalForMongo._mongoCol
   if (!globalForMongo._mongoClient) {
-    globalForMongo._mongoClient = new MongoClient(MONGODB_URI)
-    await globalForMongo._mongoClient.connect()
+    globalForMongo._mongoClient = new MongoClient(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    })
+    try {
+      await globalForMongo._mongoClient.connect()
+    } catch (e) {
+      globalForMongo._mongoClient = undefined
+      throw e
+    }
   }
   globalForMongo._mongoCol = globalForMongo._mongoClient.db('utopya').collection('state')
   return globalForMongo._mongoCol
@@ -92,9 +106,13 @@ export async function loadDB(): Promise<DBState> {
       const { _id, ...rest } = doc
       mongoErrorStreak = 0
       return migrateInline(rest as DBState)
-    } catch (e) {
+    } catch (e: any) {
       mongoErrorStreak++
-      console.error('[db] MongoDB load error, fallback to file (streak=' + mongoErrorStreak + '):', e)
+      console.error('[db] MongoDB load error, fallback to file (streak=' + mongoErrorStreak + '):', e?.message ?? e)
+      // Topology kapandıysa veya ardışık hata varsa client'ı sıfırla → sonraki istek yeniden bağlanır
+      if (e?.name === 'MongoTopologyClosedError' || mongoErrorStreak >= 3) {
+        resetMongoClient()
+      }
     }
   }
   // Dosya fallback (hata yedek planı veya MONGODB_URI yoksa)
@@ -120,9 +138,12 @@ export async function saveDB(db: DBState): Promise<void> {
     try {
       await col.replaceOne({ _id: STATE_DOC_ID as any }, { _id: STATE_DOC_ID, ...db } as any, { upsert: true })
       return
-    } catch (e) {
+    } catch (e: any) {
       mongoErrorStreak++
-      console.error('[db] MongoDB save error, fallback to file:', e)
+      console.error('[db] MongoDB save error, fallback to file:', e?.message ?? e)
+      if (e?.name === 'MongoTopologyClosedError' || mongoErrorStreak >= 3) {
+        resetMongoClient()
+      }
     }
   }
   // MongoDB güvenilmez ya da yapılandırılmamış → dosyaya yaz
