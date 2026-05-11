@@ -18,8 +18,8 @@ export function useCompetitionRealtime(opts?: { admin?: boolean }) {
     try {
       const headers: HeadersInit = {}
       if (opts?.admin) {
-        const pw = sessionStorage.getItem('admin_pw')
-        if (pw) headers['X-Admin-Password'] = pw
+        const sid = sessionStorage.getItem('admin_session')
+        if (sid) headers['X-Admin-Session'] = sid
       }
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
@@ -98,15 +98,24 @@ export function useCompetitionRealtime(opts?: { admin?: boolean }) {
 
 /* ───── Admin aksiyon yardımcıları ───── */
 export async function adminAction(type: string, payload?: any) {
-  const pw = typeof window !== 'undefined' ? sessionStorage.getItem('admin_pw') : null
+  const sid = typeof window !== 'undefined' ? sessionStorage.getItem('admin_session') : null
   const res = await fetch('/api/admin/action', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(pw ? { 'X-Admin-Password': pw } : {}),
+      ...(sid ? { 'X-Admin-Session': sid } : {}),
     },
     body: JSON.stringify({ type, payload }),
   })
+  if (res.status === 401) {
+    // Oturum başka bir cihazdan iptal edilmiş — kullanıcıyı çıkışa zorla
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('admin_session')
+      alert('Oturumunuz başka bir cihazdan kapatıldı. Tekrar giriş yapın.')
+      window.location.reload()
+    }
+    throw new Error('Oturum geçersiz')
+  }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}))
     throw new Error(data.error || 'İşlem başarısız')

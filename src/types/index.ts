@@ -6,6 +6,7 @@ export interface Competition {
   show_leaderboard: boolean
   current_group_id: string | null
   admin_password?: string  // DB'de saklanır; UI'dan değiştirilebilir
+  admin_session_id?: string  // Tek-oturum zorlaması için; her girişte yenilenir
 }
 
 export interface Group {

@@ -23,7 +23,7 @@ export default function AdminPage() {
   const data = useCompetitionRealtime({ admin: authed })
 
   useEffect(() => {
-    if (sessionStorage.getItem('admin_pw')) setAuthed(true)
+    if (sessionStorage.getItem('admin_session')) setAuthed(true)
   }, [])
 
   async function handleLogin(e: React.FormEvent) {
@@ -36,7 +36,8 @@ export default function AdminPage() {
     })
     setBusy(false)
     if (res.ok) {
-      sessionStorage.setItem('admin_pw', pwInput)
+      const data = await res.json()
+      sessionStorage.setItem('admin_session', data.sessionId)
       setAuthed(true)
     } else {
       setPwError(true); setTimeout(() => setPwError(false), 2000)
@@ -85,7 +86,7 @@ export default function AdminPage() {
           <h1 className="font-bold text-lg">⚙️ Admin Paneli</h1>
           <p className="text-white/40 text-xs truncate max-w-xs">{data.competition?.name}</p>
         </div>
-        <button onClick={() => { sessionStorage.removeItem('admin_pw'); setAuthed(false) }}
+        <button onClick={() => { sessionStorage.removeItem('admin_session'); setAuthed(false) }}
           className="text-white/30 hover:text-white/60 text-xs border border-white/10 px-3 py-1.5 rounded-lg">Çıkış</button>
       </div>
 
@@ -140,8 +141,8 @@ function YarismaTab({ data, doAction, busy }: any) {
   }
 
   async function downloadBackup() {
-    const pw = sessionStorage.getItem('admin_pw') ?? ''
-    const res = await fetch('/api/admin/backup', { headers: { 'X-Admin-Password': pw } })
+    const sid = sessionStorage.getItem('admin_session') ?? ''
+    const res = await fetch('/api/admin/backup', { headers: { 'X-Admin-Session': sid } })
     if (!res.ok) { alert('İndirme hatası'); return }
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
@@ -157,10 +158,10 @@ function YarismaTab({ data, doAction, busy }: any) {
     const text = await file.text()
     let parsed: any
     try { parsed = JSON.parse(text) } catch { alert('Dosya geçerli JSON değil'); return }
-    const pw = sessionStorage.getItem('admin_pw') ?? ''
+    const sid = sessionStorage.getItem('admin_session') ?? ''
     const res = await fetch('/api/admin/backup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': pw },
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Session': sid },
       body: JSON.stringify(parsed),
     })
     if (res.ok) { alert('Yedek başarıyla yüklendi'); window.location.reload() }
@@ -169,15 +170,22 @@ function YarismaTab({ data, doAction, busy }: any) {
 
   async function changePassword() {
     setPwError('')
-    if (oldPw !== sessionStorage.getItem('admin_pw')) { setPwError('Mevcut şifre yanlış'); return }
+    // Mevcut şifre sunucuda doğrulanır (yeni oturum kodu da üretilir)
+    const verify = await fetch('/api/auth/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: oldPw }),
+    })
+    if (!verify.ok) { setPwError('Mevcut şifre yanlış'); return }
+    const verifyData = await verify.json()
+    sessionStorage.setItem('admin_session', verifyData.sessionId)  // yeni oturum kodu
+
     if (newPw.length < 4) { setPwError('Yeni şifre en az 4 karakter olmalı'); return }
     if (newPw !== newPw2) { setPwError('Yeni şifreler eşleşmiyor'); return }
     try {
       await doAction('changePassword', { newPassword: newPw })
-      // Yeni şifre ile sessionStorage'ı güncelle (yoksa sonraki istekler 401 alır)
-      sessionStorage.setItem('admin_pw', newPw)
       setPwModal(false); setOldPw(''); setNewPw(''); setNewPw2('')
-      alert('Şifre değiştirildi')
+      alert('Şifre değiştirildi. Yeni şifrenizi unutmayın.')
     } catch (e: any) {
       setPwError(e.message)
     }

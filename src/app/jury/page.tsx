@@ -124,7 +124,7 @@ export default function JuryPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const { competition, juries, currentGroup, currentGroupVotes, loading, error, refresh } = useCompetitionRealtime()
+  const { competition, juries, currentGroup, currentGroupVotes, loading, error: connError, refresh } = useCompetitionRealtime()
 
   useEffect(() => {
     const saved = localStorage.getItem('jury_session')
@@ -165,15 +165,15 @@ export default function JuryPage() {
     setMe(null); setScores({}); setSubmitted(false)
   }
 
-  if (loading || (!competition && !error)) return (
+  if (loading || (!competition && !connError)) return (
     <div className="min-h-screen bg-[#0B1528] flex flex-col items-center justify-center gap-4 p-6 text-center">
       <motion.p animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} className="text-white/50">
         Sunucuya bağlanıyor...
       </motion.p>
       <p className="text-white/30 text-xs">Render Free 30-60 sn uyanma süresi olabilir</p>
-      {error && (
+      {connError && (
         <>
-          <p className="text-red-400 text-sm mt-2">{error}</p>
+          <p className="text-red-400 text-sm mt-2">{connError}</p>
           <button onClick={() => refresh()} className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm">
             Yeniden Dene
           </button>
@@ -182,11 +182,11 @@ export default function JuryPage() {
     </div>
   )
 
-  if (error && !competition) return (
+  if (connError && !competition) return (
     <div className="min-h-screen bg-[#0B1528] flex flex-col items-center justify-center gap-4 p-6 text-center">
       <div className="text-5xl">⚠️</div>
       <p className="text-white text-lg font-bold">Sunucuya ulaşılamıyor</p>
-      <p className="text-red-400 text-sm">{error}</p>
+      <p className="text-red-400 text-sm">{connError}</p>
       <button onClick={() => refresh()} className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl">
         Yeniden Dene
       </button>
